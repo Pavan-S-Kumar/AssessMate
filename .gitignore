@@ -1,0 +1,25 @@
+# Large files and backups
+AssessMate.zip
+
+# Frontend dependencies and builds
+AssessMate/frontend/node_modules/
+AssessMate/frontend/.next/
+AssessMate/frontend/out/
+
+# Backend dependencies and environments
+AssessMate/backend/venv/
+AssessMate/backend/.venv/
+AssessMate/backend/__pycache__/
+AssessMate/backend/*.pyc
+
+# Environment variables and secrets
+.env
+AssessMate/backend/.env
+AssessMate/frontend/.env
+
+# Databases
+# AssessMate/backend/assessmate.db (Uncomment if you don't want to push the local DB)
+
+# OS generated files
+.DS_Store
+Thumbs.db
