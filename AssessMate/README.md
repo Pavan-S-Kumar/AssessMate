@@ -33,7 +33,7 @@ SECRET_KEY=a_secure_random_string
 
 ### 3. Setup Digital Library (Crucial)
 To keep the repository lightweight, the textbook PDFs in the `Resources/` folder are not included in the git history.
-1. Download the `Resources.zip` from [Your Provided Link].
+1. Download the `Resources.zip` from (https://github.com/Pavan-S-Kumar/AssessMate-Resources).
 2. Extract the contents into the root directory of the project.
 3. Your folder structure should look like this:
    ```
