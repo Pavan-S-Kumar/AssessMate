@@ -9,6 +9,8 @@ class UserCreate(BaseModel):
     class_level: str
     board: str
     stream: Optional[str] = None
+    role: Optional[str] = "student"
+
 
 class LoginRequest(BaseModel):
     email: str
@@ -21,6 +23,8 @@ class UserResponse(BaseModel):
     class_level: str
     board: str
     stream: Optional[str] = None
+    role: str
+
 
     class Config:
         orm_mode = True
@@ -35,6 +39,8 @@ class TestGenerateRequest(BaseModel):
     long_count: int
     difficulty: str
     include_critical_thinking: bool = True
+    preview_only: bool = False
+
 
 class AnswerSubmission(BaseModel):
     question_id: str
@@ -55,3 +61,17 @@ class ChatRequest(BaseModel):
     message: str
     context: Optional[str] = None
     image_data: Optional[List[str]] = None
+
+class TeacherTestCreate(BaseModel):
+    subject: str
+    chapter: str
+    board: str
+    class_level: str
+    stream: Optional[str] = None
+    test_data: Dict[str, Any]
+    allow_reattempts: Optional[bool] = False
+    duration_hours: Optional[int] = None
+
+class JoinTestRequest(BaseModel):
+    test_code: str
+

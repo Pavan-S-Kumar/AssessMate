@@ -1,0 +1,59 @@
+# Resources (Large PDFs/Textbooks - Recommended to ignore for GitHub)
+Resources/
+
+# Dependency directories
+node_modules/
+venv/
+env/
+ENV/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+
+# Next.js build output
+.next/
+out/
+build/
+dist/
+
+# Environment variables (CRITICAL: DO NOT COMMIT)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+backend/.env
+frontend/.env
+
+# Database and logs
+*.db
+*.sqlite3
+*.log
+backend/*.log
+backend/gemini_error.log
+backend/gemini_eval_error.log
+backend/gemini_parse_debug.log
+
+# Vector database storage
+chroma_data/
+
+# IDE and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Scratch and temporary files
+scratch_*.py
+test_*.py
+backend/test_*.py
+backend/test_json.py
+backend/test_parse.py
+backend/test_parse2.py
+backend/check_db_schema.py
+backend/extract_titles.py
+backend/list_models.py
+backend/test_passlib.py
+backend/test_rate.py
+backend/test_resub.py

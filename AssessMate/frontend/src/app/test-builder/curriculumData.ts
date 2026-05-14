@@ -14,6 +14,37 @@ export const curriculumData: Record<string, Record<string, Record<string, Record
           "How do Organisms Reproduce?", "Heredity and Evolution", "Light: Reflection and Refraction",
           "The Human Eye and the Colourful World", "Electricity", "Magnetic Effects of Electric Current",
           "Our Environment"
+        ],
+        "Social Science": [
+          "The Rise of Nationalism in Europe", "Nationalism in India", "The Making of a Global World",
+          "The Age of Industrialization", "Print Culture and the Modern World", "Resources and Development",
+          "Forest and Wildlife Resources", "Water Resources", "Agriculture", "Minerals and Energy Resources",
+          "Manufacturing Industries", "Lifelines of National Economy", "Power Sharing", "Federalism",
+          "Gender, Religion and Caste", "Political Parties", "Outcomes of Democracy", "Development",
+          "Sectors of the Indian Economy", "Money and Credit", "Globalisation and the Indian Economy",
+          "Consumer Rights"
+        ],
+        "English": [
+          "A Letter to God", "Nelson Mandela: Long Walk to Freedom", "Two Stories about Flying",
+          "From the Diary of Anne Frank", "The Hundred Dresses – I", "The Hundred Dresses – II",
+          "Glimpses of India", "Mijbil the Otter", "Madam Rides the Bus", "The Sermon at Benares",
+          "The Proposal", "Dust of Snow", "Fire and Ice", "A Tiger in the Zoo", "How to Tell Wild Animals",
+          "The Ball Poem", "Amanda!", "Animals", "The Trees", "Fog", "The Tale of Custard the Dragon",
+          "For Anne Gregory", "A Triumph of Surgery", "The Thief's Story", "The Midnight Visitor",
+          "A Question of Trust", "Footprints without Feet", "The Making of a Scientist", "The Necklace",
+          "The Hack Driver", "Bholi", "The Book That Saved the Earth"
+        ],
+        "Hindi": [
+          "Netaji Ka Chashma", "Balgobin Bhagat", "Lakhnavi Andaaz", "Ek Kahani Yeh Bhi",
+          "Naubat Khane Mein Ibadat", "Sanskriti", "Surdas Ke Pad", "Tulsidas: Ram-Lakshman-Parshuram Samvad",
+          "Dev: Savaiya aur Kavitt", "Jai Shankar Prasad: Atmakathya", "Suryakant Tripathi Nirala: Utsah aur At Nahin Rahi Hai",
+          "Nagarjun: Yeh Danturit Muskan aur Fasal", "Girija Kumar Mathur: Chhaya Mat Chuna", "Ritu Raj: Kanyadaan",
+          "Manglesh Dabral: Sangatkaar", "Mata Ka Aanchal", "George Pancham Ki Naak", "Sana Sana Hath Jodi"
+        ],
+        "Information Technology": [
+          "Digital Documentation (Advanced)", "Electronic Spreadsheet (Advanced)", "Database Management System",
+          "Web Applications and Security", "Entrepreneurial Skills", "Green Skills", "Communication Skills",
+          "Self-Management Skills"
         ]
       }
     },

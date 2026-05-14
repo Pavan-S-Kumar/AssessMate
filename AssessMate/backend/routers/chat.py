@@ -14,32 +14,78 @@ def get_user_by_email(email: str, db: Session):
         user = db.query(models.User).filter(models.User.id == 1).first() # Fallback
     return user
 
-def get_student_test_context(user_id: int, db: Session) -> str:
-    # Fetch the most recent test
-    recent_test = db.query(models.TestHistory).filter(models.TestHistory.user_id == user_id).order_by(models.TestHistory.timestamp.desc()).first()
-    if not recent_test or not recent_test.results_data:
-        return ""
+def get_student_test_context(user_id: int, db: Session, current_test_id: int = None) -> str:
+    context_str = ""
+    
+    # 1. Fetch 5 most recent tests
+    recent_tests = db.query(models.TestHistory).filter(
+        models.TestHistory.user_id == user_id,
+        models.TestHistory.total_score.isnot(None) # Only tests that have been completed
+    ).order_by(models.TestHistory.timestamp.desc()).limit(5).all()
+
+    if not recent_tests:
+        return "No recent test data available yet."
+
+    context_str += "--- STUDENT TEST HISTORY (Last 5 Tests, most recent first) ---\n"
+    
+    for i, test in enumerate(recent_tests):
+        is_current = current_test_id and test.id == current_test_id
+        # Index 0 is the absolute most recent test taken
+        recency = "MOST RECENT TEST" if i == 0 else f"{i+1}th Most Recent"
+        marker = " [CURRENTLY VIEWING THIS PAGE]" if is_current else ""
         
-    context_str = f"Subject: {recent_test.subject} | Chapter: {recent_test.chapter}\n"
-    context_str += f"Total Score: {recent_test.total_score} | Acceptance Rate: {recent_test.acceptance_rate}%\n\n"
-    
-    qs = recent_test.test_data.get("questions", [])
-    evals = recent_test.results_data.get("evaluations", [])
-    
-    # Extract only questions where the student lost marks
-    for ev in evals:
-        q = next((q for q in qs if q["id"] == ev["question_id"]), None)
-        if q:
-            q_max = 1
-            if q["type"] == "long": q_max = 5
-            elif q["type"] == "short": q_max = 2
+        context_str += f"{recency}: {test.subject} - {test.chapter}{marker}\n"
+        context_str += f"- Taken at: {test.timestamp.strftime('%Y-%m-%d %I:%M %p UTC')}\n"
+        context_str += f"- Score: {test.total_score} | Acceptance: {test.acceptance_rate}%\n"
+        
+        evals = test.results_data.get("evaluations", []) if test.results_data else []
+        qs = test.test_data.get("questions", []) if test.test_data else []
+        
+        # Identify failed/struggled topics (score < 60% of max)
+        failed_topics = []
+        for ev in evals:
+            q = next((q for q in qs if q["id"] == ev["question_id"]), None)
+            if q:
+                q_max = q.get("max_score", 1)
+                if ev.get("score", 0) < (q_max * 0.6):
+                    failed_topics.append({
+                        "question": q["content"],
+                        "feedback": ev.get("feedback", ""),
+                        "type": q["type"]
+                    })
+        
+        if failed_topics:
+            context_str += "- Areas of struggle:\n"
+            for f in failed_topics[:2]: # Top 2 per test
+                context_str += f"  * Q: {f['question'][:80]}...\n"
+                context_str += f"    Feedback: {f['feedback']}\n"
+        
+        context_str += "\n"
             
-            if ev["score"] < q_max:
-                context_str += f"Question: {q['content']}\n"
-                context_str += f"Student's Wrong Answer: {ev.get('user_answer', 'None')}\n"
-                context_str += f"AI Evaluator Feedback: {ev.get('feedback', '')}\n\n"
-                
     return context_str.strip()
+
+def get_teacher_test_context(user: models.User, db: Session) -> str:
+    if user.role == "teacher":
+        # Show tests they created
+        tests = db.query(models.TeacherTest).filter(models.TeacherTest.teacher_id == user.id, models.TeacherTest.is_deleted == 0).order_by(models.TeacherTest.created_at.desc()).limit(5).all()
+        if not tests: return ""
+        context = "\n--- YOUR CREATED TESTS (TEACHER VIEW) ---\n"
+        for t in tests:
+            context += f"- [{t.test_code}] {t.subject}: {t.chapter} ({t.class_level} {t.board})\n"
+        return context
+    else:
+        # Show tests available for their class
+        tests = db.query(models.TeacherTest).filter(
+            models.TeacherTest.class_level == user.class_level,
+            models.TeacherTest.board == user.board,
+            models.TeacherTest.is_active == 1,
+            models.TeacherTest.is_deleted == 0
+        ).limit(5).all()
+        if not tests: return ""
+        context = "\n--- AVAILABLE CLASS TESTS (STUDENT VIEW) ---\n"
+        for t in tests:
+            context += f"- {t.subject}: {t.chapter} (Code: {t.test_code})\n"
+        return context
 
 @router.get("/{email}/history")
 def get_chat_history(email: str, db: Session = Depends(get_db)):
@@ -75,8 +121,22 @@ def start_new_chat(email: str, request: schemas.ChatRequest, db: Session = Depen
     # Build initial message array
     messages = [{"role": "user", "content": request.message, "image_data": request.image_data}]
     
-    # Get student context
-    student_context = get_student_test_context(user.id, db)
+    # Extract test_id from URL context if present (e.g. /results/64)
+    current_test_id = None
+    if request.context and "/results/" in request.context:
+        try:
+            current_test_id = int(request.context.split("/results/")[1].split("/")[0])
+        except:
+            pass
+
+    # Get student context (Recent performance)
+    student_context = get_student_test_context(user.id, db, current_test_id)
+    
+    # Get teacher test context (Created tests or Available class tests)
+    teacher_context = get_teacher_test_context(user, db)
+    
+    # Combine history context for Mate
+    history_context = student_context + "\n" + teacher_context
     
     # Get document context from RAG
     rag_results = []
@@ -89,7 +149,7 @@ def start_new_chat(email: str, request: schemas.ChatRequest, db: Session = Depen
     document_context = "\n".join(rag_results) if rag_results else ""
     
     # Get Mate's response
-    ai_response = chat_with_mate(messages, student_context, document_context)
+    ai_response = chat_with_mate(messages, history_context, document_context)
     messages.append({"role": "assistant", "content": ai_response})
     
     # Save to DB
@@ -129,12 +189,25 @@ def send_message(chat_id: int, request: schemas.ChatRequest, db: Session = Depen
     messages = chat.messages or []
     messages.append({"role": "user", "content": request.message, "image_data": request.image_data})
     
+    # Extract test_id from URL context if present
+    current_test_id = None
+    if request.context and "/results/" in request.context:
+        try:
+            current_test_id = int(request.context.split("/results/")[1].split("/")[0])
+        except:
+            pass
+
     # Get student context
-    student_context = get_student_test_context(chat.user_id, db)
+    student_context = get_student_test_context(chat.user_id, db, current_test_id)
+    
+    # Get teacher context
+    user = db.query(models.User).filter(models.User.id == chat.user_id).first()
+    teacher_context = get_teacher_test_context(user, db) if user else ""
+    
+    # Combine history context
+    history_context = student_context + "\n" + teacher_context
     
     # Get document context from RAG
-    # We need the user to get their class_level
-    user = db.query(models.User).filter(models.User.id == chat.user_id).first()
     class_level = user.class_level if user else ""
     
     rag_results = []
@@ -147,7 +220,7 @@ def send_message(chat_id: int, request: schemas.ChatRequest, db: Session = Depen
     document_context = "\n".join(rag_results) if rag_results else ""
     
     # Get Mate's response based on the entire history
-    ai_response = chat_with_mate(messages, student_context, document_context)
+    ai_response = chat_with_mate(messages, history_context, document_context)
     messages.append({"role": "assistant", "content": ai_response})
     
     # Save back to DB

@@ -14,6 +14,7 @@ export default function Login() {
     username: "",
     email: "",
     password: "",
+    role: "student",
     class_level: "X",
     board: "CBSE",
     stream: "Default"
@@ -101,6 +102,20 @@ export default function Login() {
 
           {!isLogin && (
             <div className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">I am a</label>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="role" value="student" checked={formData.role === "student"} onChange={handleInputChange} className="text-secondary focus:ring-secondary" />
+                    Student
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="role" value="teacher" checked={formData.role === "teacher"} onChange={handleInputChange} className="text-secondary focus:ring-secondary" />
+                    Teacher
+                  </label>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Board</label>
                 <select name="board" value={formData.board} onChange={handleInputChange} className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-secondary focus:border-secondary outline-none bg-white text-gray-900">

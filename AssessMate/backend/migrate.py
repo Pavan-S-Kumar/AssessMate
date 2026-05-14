@@ -37,6 +37,12 @@ def migrate():
     except sqlite3.OperationalError:
         print("Column stream already exists")
         
+    try:
+        cursor.execute("ALTER TABLE teacher_tests ADD COLUMN allow_reattempts INTEGER DEFAULT 0;")
+        print("Added allow_reattempts")
+    except sqlite3.OperationalError:
+        print("Column allow_reattempts already exists")
+        
     conn.commit()
     conn.close()
 

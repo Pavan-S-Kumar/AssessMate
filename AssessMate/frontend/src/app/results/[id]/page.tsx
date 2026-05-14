@@ -25,8 +25,34 @@ export default function Results({ params }: { params: Promise<{ id: string }> })
     fetchResults();
   }, [unwrappedParams.id]);
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center font-bold text-primary">Loading Results...</div>;
-  if (!data || !data.results_data) return <div className="min-h-screen flex items-center justify-center font-bold text-red-500">Results not found or test not evaluated.</div>;
+  if (loading) return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
+      <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-4" />
+      <div className="font-bold text-indigo-600 text-lg animate-pulse">Analyzing Results...</div>
+    </div>
+  );
+
+  if (!data) return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-6 text-center">
+      <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mb-6 text-red-500">
+        <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+      </div>
+      <h2 className="text-2xl font-bold text-slate-800 mb-2">Test Not Found</h2>
+      <p className="text-slate-500 max-w-md">We couldn't find the test record you're looking for. It might have been deleted or moved.</p>
+      <Link href="/dashboard/history" className="mt-8 px-6 py-2 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors">Return to History</Link>
+    </div>
+  );
+
+  if (!data.results_data) return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-6 text-center">
+      <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mb-6 text-amber-500">
+        <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+      </div>
+      <h2 className="text-2xl font-bold text-slate-800 mb-2">Evaluation Pending</h2>
+      <p className="text-slate-500 max-w-md">This test hasn't been evaluated yet, or the evaluation process is still in progress. Please try again in a moment.</p>
+      <Link href="/dashboard/history" className="mt-8 px-6 py-2 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors">Return to History</Link>
+    </div>
+  );
 
   const score = data.total_score || 0;
   
@@ -34,9 +60,7 @@ export default function Results({ params }: { params: Promise<{ id: string }> })
   let maxScore = 0;
   const questions = data.assessment?.questions || [];
   questions.forEach((q: any) => {
-    if (q.type === "mcq") maxScore += 1;
-    else if (q.type === "long") maxScore += 5;
-    else maxScore += 2;
+    maxScore += q.max_score || (q.type === "mcq" ? 1 : (q.type === "long" ? 5 : 2));
   });
 
   const evaluations = data.results_data.evaluations || [];
@@ -74,9 +98,7 @@ export default function Results({ params }: { params: Promise<{ id: string }> })
             const question = questions.find((q: any) => q.id === evalItem.question_id);
             if (!question) return null;
             
-            let maxQScore = 1;
-            if (question.type === "long") maxQScore = 5;
-            else if (question.type === "short") maxQScore = 2;
+            let maxQScore = question.max_score || (question.type === "mcq" ? 1 : (question.type === "long" ? 5 : 2));
             
             const isFullMarks = evalItem.score >= (maxQScore * 0.8);
             const isZero = evalItem.score === 0;

@@ -9,32 +9,127 @@ import re
 
 def parse_json_robustly(text: str):
     """
-    Safely parses JSON, handling common Gemini errors like unescaped backslashes in LaTeX.
+    Safely parses JSON, handling common Gemini errors like unescaped backslashes in LaTeX,
+    hidden control characters, and trailing conversational text.
     """
+    if not text:
+        return None
+        
+    # 1. Clean control characters and weird whitespace
+    text = re.sub(r'[\x00-\x1F\x7F]', '', text)
+    
     text = text.strip()
-    # Pre-process text to fix single backslashes that are meant to be LaTeX commands (e.g., \begin -> \\begin)
-    # We avoid replacing \n, \t, \r, \", \\, \/
-    fixed_text = re.sub(r'(?<!\\)\\(?![ntr"\\/])', r'\\\\', text)
+    
+    # 2. Extract potential JSON block (from first { or [)
+    first_brace = text.find('{')
+    first_bracket = text.find('[')
+    
+    start_idx = -1
+    if first_brace != -1 and (first_bracket == -1 or first_brace < first_bracket):
+        start_idx = first_brace
+    elif first_bracket != -1:
+        start_idx = first_bracket
+        
+    if start_idx == -1:
+        # If no braces found, maybe it's a plain string?
+        try:
+            return json.loads(f'"{text}"')
+        except:
+            return None
+        
+    text = text[start_idx:]
+    # Remove everything after the last } or ]
+    last_brace = text.rfind('}')
+    last_bracket = text.rfind(']')
+    end_idx = max(last_brace, last_bracket)
+    if end_idx != -1:
+        text = text[:end_idx+1]
+    
+    # 3. Multi-stage backslash fixing
+    # First, protect already escaped backslashes and quotes
+    text = text.replace('\\\\', '___DOUBLE_BACKSLASH___')
+    text = text.replace('\\"', '___ESCAPED_QUOTE___')
+    
+    # Fix single backslashes that are NOT part of standard JSON escapes (n, t, r, u)
+    text = re.sub(r'\\(?![ntru])', r'\\\\', text)
+    
+    # Restore protected characters
+    text = text.replace('___DOUBLE_BACKSLASH___', '\\\\')
+    text = text.replace('___ESCAPED_QUOTE___', '\\"')
+    
+    # 4. Parse using raw_decode to handle trailing text
     try:
-        return json.loads(fixed_text)
-    except json.JSONDecodeError:
-        # Fallback to the original text if regex breaks it
-        return json.loads(text)
+        decoder = json.JSONDecoder()
+        obj, _ = decoder.raw_decode(text)
+        return obj
+    except json.JSONDecodeError as e:
+        print(f"JSON Parsing failed at index {e.pos}: {str(e)}")
+        print(f"Text snippet around error: {text[max(0, e.pos-20):e.pos+20]}")
+        with open("gemini_parse_debug.log", "a", encoding="utf-8") as f:
+            f.write(f"--- FAILED TEXT ---\n{text}\n--- ERROR ---\n{str(e)}\n\n")
+        # Last ditch effort for LaTeX specific issues
+        try:
+            simple_fix = re.sub(r'(?<!\\)\\(?!\\)', r'\\\\', text)
+            obj, _ = decoder.raw_decode(simple_fix)
+            return obj
+        except:
+            raise e
 
-# Configure Gemini
-api_key = os.getenv("GEMINI_API_KEY")
-if api_key and api_key != "your_gemini_api_key_here":
-    genai.configure(api_key=api_key)
+# Multi-key Support
+api_keys = [os.getenv("GEMINI_API_KEY")]
+# Support additional keys GEMINI_API_KEY_1, GEMINI_API_KEY_2, etc.
+for i in range(1, 6):
+    key = os.getenv(f"GEMINI_API_KEY_{i}")
+    if key:
+        api_keys.append(key)
+api_keys = [k for k in api_keys if k and k != "your_gemini_api_key_here"]
 
-# We use Gemini 2.5 Flash Lite to bypass the extremely strict 5 RPM free tier limits
-model = genai.GenerativeModel("gemini-2.5-flash-lite")
+current_key_index = 0
+
+# Multi-model Support to bypass quota limits
+models_to_try = [
+    "gemini-2.0-flash-lite", 
+    "gemini-2.5-flash-lite", 
+    "gemini-2.0-flash", 
+    "gemini-2.5-flash",
+    "gemini-flash-latest"
+]
+current_model_index = 0
+
+def get_next_model():
+    global current_key_index, current_model_index
+    if not api_keys:
+        return None
+    
+    key = api_keys[current_key_index]
+    genai.configure(api_key=key)
+    model_name = models_to_try[current_model_index]
+    print(f"Using Model: {model_name} with Key Index: {current_key_index}")
+    return genai.GenerativeModel(model_name)
+
+def rotate_key_or_model():
+    global current_key_index, current_model_index
+    # Try rotating model first
+    current_model_index += 1
+    if current_model_index >= len(models_to_try):
+        current_model_index = 0
+        # If we've tried all models, rotate the key
+        if len(api_keys) > 1:
+            current_key_index = (current_key_index + 1) % len(api_keys)
+            print(f"Rotating to next API key...")
+            return True
+        return False # No more keys to rotate
+    return True # Rotated model
+
+# Initialize model
+model = get_next_model()
 
 def generate_assessment(context: str, subject: str, chapter: str, mode: str, config: dict):
     """
     Generates a structured JSON assessment based on the RAG context.
     Falls back to mock data if API key is missing.
     """
-    if not api_key or api_key == "your_gemini_api_key_here":
+    if not api_keys:
         return generate_mock_assessment(subject, chapter, config)
 
     total_requested = config.get('mcq_count', 0) + config.get('short_count', 0) + config.get('long_count', 0)
@@ -66,7 +161,8 @@ def generate_assessment(context: str, subject: str, chapter: str, mode: str, con
        - Inline math MUST be enclosed in `$` (e.g., `$H_2SO_4$`).
        - Block math MUST be enclosed in `$$` (e.g., `$$ \\frac{{p^0 - p_s}}{{p^0}} = \\frac{{n}}{{N}} $$`).
        - IMPORTANT JSON ESCAPING: You must properly escape LaTeX backslashes in the JSON string! Use `\\\\frac` instead of `\\frac`, `\\\\begin` instead of `\\begin`, and `\\\\\\\\` for matrix newlines.
-    9. For each question, provide a new field `hint` containing a helpful, concept-based hint that does NOT give away the direct answer. Write it in the persona of 'Mate', a fun, enthusiastic alien teaching assistant (e.g., start with 'Amaze!' or use fun, energetic language).
+    9. For each question, provide a field `max_score` (1 for MCQ, 2 for Short Answer, 5 for Long Answer).
+    10. For each question, provide a new field `hint` containing a helpful, concept-based hint that does NOT give away the direct answer. Write it in the persona of 'Mate', a fun, enthusiastic alien teaching assistant (e.g., start with 'Amaze!' or use fun, energetic language).
     
     Context:
     {context}
@@ -82,6 +178,7 @@ def generate_assessment(context: str, subject: str, chapter: str, mode: str, con
                 "ideal_answer": "Option A",
                 "explanation": "Option A is correct because...",
                 "is_critical_thinking": true,
+                "max_score": 1,
                 "hint": "Amaze! Think about..."
             }},
             {{
@@ -90,14 +187,17 @@ def generate_assessment(context: str, subject: str, chapter: str, mode: str, con
                 "content": "Short question text here",
                 "ideal_answer": "Expected ideal answer focusing on key concepts.",
                 "is_critical_thinking": false,
+                "max_score": 2,
                 "hint": "Amaze! Remember that..."
             }}
         ]
     }}
     """
     import time
-    for attempt in range(3):
+    global model
+    for attempt in range(len(models_to_try) * len(api_keys) * 2):
         try:
+            if not model: model = get_next_model()
             response = model.generate_content(prompt)
             text = response.text.strip()
             if text.startswith("```json"):
@@ -110,12 +210,20 @@ def generate_assessment(context: str, subject: str, chapter: str, mode: str, con
             print(f"Attempt {attempt+1} - Error generating assessment: {error_str}")
             with open("gemini_error.log", "a") as f:
                 f.write(f"Attempt {attempt+1} - Error generating assessment: {error_str}\n")
-            if "429" in error_str and attempt < 2:
-                print("Rate limit exceeded, retrying in 10 seconds...")
-                time.sleep(10)
+            
+            if "429" in error_str:
+                if rotate_key_or_model():
+                    model = get_next_model()
+                    continue
+                else:
+                    delay = 15 * (attempt + 1)
+                    print(f"Rate limit exceeded, no more keys, retrying in {delay} seconds...")
+                    time.sleep(delay)
+                    continue
+            
+            if attempt < 2:
+                time.sleep(2)
                 continue
-            # If it's not a rate limit or we're out of retries, raise the error
-            # so the frontend knows it failed instead of serving a broken mock test.
             raise Exception("Failed to generate assessment due to AI service error.")
 
 def evaluate_answer(question: str, user_answer: str, ideal_answer: str, context: str):
@@ -123,13 +231,12 @@ def evaluate_answer(question: str, user_answer: str, ideal_answer: str, context:
     Evaluates a subjective answer using Gemini.
     Falls back to mock evaluation if API key is missing.
     """
-    if not api_key or api_key == "your_gemini_api_key_here":
-        # Mock evaluation: if user types something > 10 chars, give them an 8, else 4.
+    if not api_keys:
+        # Mock evaluation
         score = 8 if len(user_answer.strip()) > 10 else 4
         return {
             "score": score,
-            "feedback": "This is simulated feedback because no API key was provided. " + 
-                        ("Good effort!" if score > 5 else "Needs more detail.")
+            "feedback": "This is simulated feedback because no API key was provided."
         }
 
     prompt = f"""
@@ -148,8 +255,10 @@ def evaluate_answer(question: str, user_answer: str, ideal_answer: str, context:
     }}
     """
     import time
-    for attempt in range(3):
+    global model
+    for attempt in range(len(models_to_try) * len(api_keys) * 2):
         try:
+            if not model: model = get_next_model()
             response = model.generate_content(prompt)
             text = response.text.strip()
             if text.startswith("```json"):
@@ -162,9 +271,18 @@ def evaluate_answer(question: str, user_answer: str, ideal_answer: str, context:
             print(f"Attempt {attempt+1} - Error evaluating answer: {error_str}")
             with open("gemini_eval_error.log", "a") as f:
                 f.write(f"Attempt {attempt+1} - Error evaluating answer: {error_str}\n")
-            if "429" in error_str and attempt < 2:
-                print("Rate limit exceeded, retrying in 10 seconds...")
-                time.sleep(10)
+            
+            if "429" in error_str:
+                if rotate_key_or_model():
+                    model = get_next_model()
+                    continue
+                else:
+                    delay = 10 * (attempt + 1)
+                    time.sleep(delay)
+                    continue
+            
+            if attempt < 2:
+                time.sleep(2)
                 continue
             raise Exception("Failed to evaluate answer due to AI service error.")
 
@@ -173,7 +291,7 @@ def batch_evaluate_answers(eval_requests: list, context: str):
     Evaluates an array of subjective answers using Gemini in a single prompt.
     Falls back to mock evaluation if API key is missing.
     """
-    if not api_key or api_key == "your_gemini_api_key_here":
+    if not api_keys:
         # Mock evaluation fallback
         results = []
         for req in eval_requests:
@@ -220,11 +338,18 @@ def batch_evaluate_answers(eval_requests: list, context: str):
     prompt_text += """
     
     For EACH question in the array, score the answer out of its designated `max_score`. Provide constructive, concept-level feedback.
-    If an image is attached for a question, read the handwriting in the image and grade it based on the ideal answer.
+    
+    IMPORTANT: Some questions have attached images of handwritten answers. 
+    You MUST look at the images provided in the sequence below. 
+    Each image is labeled with the Question ID it belongs to.
+    If an image is provided for a question, ignore the text "[Handwritten Answer Attached]" and instead evaluate the handwriting in that image.
+    If no image is provided, evaluate the text in `user_answer`.
+    
     ALWAYS format mathematical equations, scientific notations, chemical formulas, and symbols in your feedback using standard LaTeX formatting.
     - Inline math MUST be enclosed in `$` (e.g., `$H_2SO_4$`).
-    - Block math MUST be enclosed in `$$` (e.g., `$$ \\frac{{p^0 - p_s}}{{p^0}} = \\frac{{n}}{{N}} $$`).
-    - IMPORTANT JSON ESCAPING: You must properly escape LaTeX backslashes in the JSON string! Use `\\\\frac` instead of `\\frac`, `\\\\begin` instead of `\\begin`, and `\\\\\\\\` for matrix newlines.
+    - Block math MUST be enclosed in `$$` (e.g., `$$ \\\\frac{{p^0 - p_s}}{{p^0}} = \\\\frac{{n}}{{N}} $$`).
+    - IMPORTANT JSON ESCAPING: You must properly escape LaTeX backslashes in the JSON string! Use `\\\\frac` instead of `\\frac`.
+    
     Output strictly as a JSON array of objects, containing ONLY the evaluations, in the exact same order:
     [
         {
@@ -238,8 +363,10 @@ def batch_evaluate_answers(eval_requests: list, context: str):
     parts.insert(0, prompt_text)
 
     import time
-    for attempt in range(3):
+    global model
+    for attempt in range(len(models_to_try) * len(api_keys) * 2):
         try:
+            if not model: model = get_next_model()
             response = model.generate_content(parts)
             text = response.text.strip()
             if text.startswith("```json"):
@@ -252,9 +379,18 @@ def batch_evaluate_answers(eval_requests: list, context: str):
             print(f"Attempt {attempt+1} - Error batch evaluating answers: {error_str}")
             with open("gemini_eval_error.log", "a") as f:
                 f.write(f"Attempt {attempt+1} - Error batch evaluating: {error_str}\n")
-            if "429" in error_str and attempt < 2:
-                print("Rate limit exceeded, retrying in 10 seconds...")
-                time.sleep(10)
+            
+            if "429" in error_str:
+                if rotate_key_or_model():
+                    model = get_next_model()
+                    continue
+                else:
+                    delay = 10 * (attempt + 1)
+                    time.sleep(delay)
+                    continue
+            
+            if attempt < 2:
+                time.sleep(2)
                 continue
             raise Exception("Failed to evaluate answers due to AI service error.")
 
@@ -278,7 +414,8 @@ def generate_mock_assessment(subject: str, chapter: str, config: dict):
             "content": f"Mock MCQ {i+1} about {chapter} ({subject})",
             "options": ["Correct Answer", "Wrong Option B", "Wrong Option C", "Wrong Option D"],
             "ideal_answer": "Correct Answer",
-            "is_critical_thinking": is_ct
+            "is_critical_thinking": is_ct,
+            "max_score": 1
         })
         q_id += 1
         
@@ -289,7 +426,8 @@ def generate_mock_assessment(subject: str, chapter: str, config: dict):
             "type": "short",
             "content": f"Mock Short Answer {i+1} explaining a concept in {chapter}.",
             "ideal_answer": "This is the ideal expected answer mentioning keywords X and Y.",
-            "is_critical_thinking": is_ct
+            "is_critical_thinking": is_ct,
+            "max_score": 2
         })
         q_id += 1
         
@@ -300,7 +438,8 @@ def generate_mock_assessment(subject: str, chapter: str, config: dict):
             "type": "long",
             "content": f"Mock Long Answer {i+1}: Elaborate thoroughly on the main principles of {chapter}.",
             "ideal_answer": "The ideal answer must contain an introduction, body explaining principles 1, 2, 3, and a conclusion.",
-            "is_critical_thinking": is_ct
+            "is_critical_thinking": is_ct,
+            "max_score": 5
         })
         q_id += 1
         
@@ -310,13 +449,26 @@ def chat_with_mate(messages: list, student_history_context: str = "", document_c
     """
     Sends a chat history to Gemini and returns the AI's response.
     """
-    if not api_key or api_key == "your_gemini_api_key_here":
+    if not api_keys:
         return "This is a mock response from Mate because no API key is provided. Amaze!"
 
     # System instruction for Mate
     system_instruction = """
     You are Mate, an AI teaching assistant inspired by Rocky from Project Hail Mary. 
     Your ultimate goal is to make the student understand concepts.
+    
+    PERFORMANCE ANALYSIS & MOTIVATION:
+    - You have access to the student's recent test history (up to 5 most recent).
+    - IMPORTANT: If a student asks a generic question like "how was my last test?" or "what went wrong?", ALWAYS prioritize the "MOST RECENT TEST" in the history list, unless they are "CURRENTLY VIEWING" a specific results page.
+    - If there is a conflict (e.g., they are viewing an old test but have taken a newer one), briefly mention the newer one first or ask which one they want to discuss.
+    - Always clarify WHICH test you are referring to by mentioning the Subject and Chapter.
+    - Perform a statistical analysis:
+        * Compare scores across subjects/chapters.
+        * Identify specific concepts or question types (MCQ vs Subjective) where they struggled.
+        * Provide 2-3 actionable study tips focused on their 'Areas of struggle'.
+    - MOTIVATION RULES:
+        * If their score/percentage in a test is BELOW 70%, be extremely encouraging and motivating. Remind them that failure is a stepping stone and provide clear steps to improve.
+        * If their score/percentage is ABOVE 70%, praise their hard work and encourage them to reach for 90%+.
     
     CRITICAL RULE: When explaining a concept or answering a question directly, you MUST provide absolute clarity, precision, and educational depth WITHOUT playfulness or your catchphrases. Explain it as clearly and formally as possible so the student learns effectively.
     
@@ -354,8 +506,10 @@ def chat_with_mate(messages: list, student_history_context: str = "", document_c
         })
 
     import time
-    for attempt in range(3):
+    global model
+    for attempt in range(len(models_to_try) * len(api_keys) * 2):
         try:
+            if not model: model = get_next_model()
             chat = model.start_chat(history=formatted_history[:-1]) # start with all but last
             last_msg = formatted_history[-1]["parts"]
             response = chat.send_message(last_msg)
@@ -363,8 +517,15 @@ def chat_with_mate(messages: list, student_history_context: str = "", document_c
         except Exception as e:
             error_str = str(e)
             print(f"Attempt {attempt+1} - Error chatting with Mate: {error_str}")
-            if "429" in error_str and attempt < 2:
-                time.sleep(5)
+            if "429" in error_str:
+                if rotate_key_or_model():
+                    model = get_next_model()
+                    continue
+                else:
+                    time.sleep(5)
+                    continue
+            if attempt < 2:
+                time.sleep(2)
                 continue
             raise Exception("Failed to get chat response from AI.")
 

@@ -148,13 +148,20 @@ export default function MateChatOverlay({ onClose }: { onClose: () => void }) {
     setMessages(prev => [...prev, { role: "user", content: userMsg, image_data: currentAttachments.length > 0 ? currentAttachments : undefined }]);
     setIsLoading(true);
 
+    const currentPath = typeof window !== 'undefined' ? window.location.pathname : "";
+    const payload = { 
+      message: userMsg, 
+      image_data: currentAttachments.length > 0 ? currentAttachments : null,
+      context: currentPath // Pass current URL as context
+    };
+
     try {
       if (activeChatId) {
         // Continue existing chat
         const response = await fetch(`http://127.0.0.1:8000/chat/${activeChatId}/message`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: userMsg, image_data: currentAttachments.length > 0 ? currentAttachments : null })
+          body: JSON.stringify(payload)
         });
         if (response.ok) {
           const data = await response.json();
@@ -166,7 +173,7 @@ export default function MateChatOverlay({ onClose }: { onClose: () => void }) {
         const response = await fetch(`http://127.0.0.1:8000/chat/${email}/new`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: userMsg, image_data: currentAttachments.length > 0 ? currentAttachments : null })
+          body: JSON.stringify(payload)
         });
         if (response.ok) {
           const data = await response.json();
@@ -222,7 +229,7 @@ export default function MateChatOverlay({ onClose }: { onClose: () => void }) {
 
         {/* Main Chat Area */}
         <div className="flex-1 flex flex-col bg-transparent relative">
-          <div className="h-16 border-b border-slate-200/60 flex items-center justify-between px-6 glass absolute top-0 w-full z-10">
+          <div className="h-16 border-b border-slate-200/60 flex items-center justify-between px-6 bg-white/90 backdrop-blur-xl absolute top-0 w-full z-20">
             <div className="flex items-center gap-3">
               <div className="relative">
                 <img src="/mate_logo.png" alt="Mate" className="w-10 h-10 rounded-full border-2 border-indigo-100 shadow-sm" />
@@ -253,36 +260,40 @@ export default function MateChatOverlay({ onClose }: { onClose: () => void }) {
                 <p className="max-w-md text-slate-500 leading-relaxed">I can explain complex concepts clearly and guide you step-by-step. Ask me anything about your studies!</p>
               </div>
             ) : (
-              messages.map((msg, idx) => (
-                <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} relative z-10 animate-slide-up`} style={{ animationDelay: `${idx * 0.05}s` }}>
-                  <div className={`max-w-[85%] sm:max-w-[75%] rounded-3xl px-6 py-4 shadow-sm ${msg.role === 'user' ? 'bg-gradient-to-br from-indigo-600 to-violet-600 text-white rounded-tr-sm' : 'bg-white border border-slate-200 text-slate-800 rounded-tl-sm'}`}>
-                    <div className="text-[15px] leading-relaxed">
-                      {msg.role === 'user' ? (
-                        <>
-                          <p>{msg.content}</p>
-                          {msg.image_data && msg.image_data.length > 0 && (
-                            <div className="flex flex-wrap gap-2 mt-4">
-                              {msg.image_data.map((imgStr, i) => (
-                                <img 
-                                  key={i} 
-                                  src={imgStr} 
-                                  alt="Attached" 
-                                  className="max-w-[200px] max-h-[200px] rounded-xl border-2 border-white/20 cursor-zoom-in hover:opacity-90 transition-opacity shadow-md" 
-                                  onClick={() => setExpandedImage(imgStr)}
-                                />
-                              ))}
-                            </div>
-                          )}
-                        </>
-                      ) : (
-                        <div className="prose prose-slate prose-sm max-w-none">
-                          <MarkdownRenderer content={msg.content} />
-                        </div>
-                      )}
+              messages.map((msg, idx) => {
+                // Only animate the very last message to prevent lag on long histories
+                const isLast = idx === messages.length - 1;
+                return (
+                  <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} relative z-10 ${isLast ? 'animate-slide-up' : ''}`}>
+                    <div className={`max-w-[85%] sm:max-w-[75%] rounded-3xl px-6 py-4 shadow-sm ${msg.role === 'user' ? 'bg-gradient-to-br from-indigo-600 to-violet-600 text-white rounded-tr-sm' : 'bg-white border border-slate-200 text-slate-800 rounded-tl-sm'}`}>
+                      <div className="text-[15px] leading-relaxed">
+                        {msg.role === 'user' ? (
+                          <>
+                            <p className="whitespace-pre-wrap">{msg.content}</p>
+                            {msg.image_data && msg.image_data.length > 0 && (
+                              <div className="flex flex-wrap gap-2 mt-4">
+                                {msg.image_data.map((imgStr, i) => (
+                                  <img 
+                                    key={i} 
+                                    src={imgStr} 
+                                    alt="Attached" 
+                                    className="max-w-[200px] max-h-[200px] rounded-xl border-2 border-white/20 cursor-zoom-in hover:opacity-90 transition-opacity shadow-md" 
+                                    onClick={() => setExpandedImage(imgStr)}
+                                  />
+                                ))}
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <div className="prose prose-slate prose-sm max-w-none">
+                            <MarkdownRenderer content={msg.content} />
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
             
             {isLoading && (
@@ -297,7 +308,7 @@ export default function MateChatOverlay({ onClose }: { onClose: () => void }) {
             <div ref={messagesEndRef} />
           </div>
 
-          <div className="p-4 bg-white/80 backdrop-blur-md border-t border-slate-200/60 z-10 relative">
+          <div className="p-4 bg-white/95 backdrop-blur-md border-t border-slate-200/60 z-20 relative">
             {attachments.length > 0 && (
               <div className="max-w-4xl mx-auto mb-4 flex gap-3 overflow-x-auto p-2">
                 {attachments.map((imgSrc, idx) => (

@@ -12,24 +12,33 @@ interface TestHistory {
 }
 
 export default function TestHistory() {
-  const [history, setHistory] = useState<TestHistory[]>([]);
+  const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isTeacher, setIsTeacher] = useState(false);
 
   useEffect(() => {
     const fetchHistory = async () => {
-      let parsedUser = { username: "Student", email: "student@example.com" };
+      let parsedUser = { username: "Student", email: "student@example.com", role: "student" };
 
       const userStr = localStorage.getItem("assessmate_user");
       if (userStr) {
         parsedUser = JSON.parse(userStr);
       }
+      setIsTeacher(parsedUser.role === 'teacher');
 
       try {
-        const response = await fetch(`http://127.0.0.1:8000/tests/performance/${parsedUser.email}`);
-        if (response.ok) {
-          const result = await response.json();
-          // We only need tests with an actual ID.
-          setHistory(result.filter((r: any) => r.test_id));
+        if (parsedUser.role === 'teacher') {
+          const response = await fetch(`http://127.0.0.1:8000/tests/teacher/tests/${parsedUser.email}`);
+          if (response.ok) {
+            const result = await response.json();
+            setHistory(result); // For teacher tests, we don't need to filter by test_id as they always have id
+          }
+        } else {
+          const response = await fetch(`http://127.0.0.1:8000/tests/performance/${parsedUser.email}`);
+          if (response.ok) {
+            const result = await response.json();
+            setHistory(result.filter((r: any) => r.test_id));
+          }
         }
       } catch (err) {
         console.error("Error fetching history", err);
@@ -68,13 +77,51 @@ export default function TestHistory() {
             <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg className="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
             </div>
-            <p className="text-slate-500 mb-6 text-lg">You haven't taken any tests yet.</p>
+            <p className="text-slate-500 mb-6 text-lg">{isTeacher ? "You haven't created any tests yet." : "You haven't taken any tests yet."}</p>
             <Link
-              href="/test-builder"
+              href={isTeacher ? "/test-builder?teacher=true" : "/test-builder"}
               className="px-8 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-xl font-semibold shadow-md shadow-indigo-200 hover:shadow-lg hover:shadow-indigo-300 hover:-translate-y-0.5 transition-all duration-200"
             >
-              Take a Test
+              {isTeacher ? "Create Test" : "Take a Test"}
             </Link>
+          </div>
+        ) : isTeacher ? (
+          <div className="grid gap-5 animate-slide-up" style={{ animationDelay: '0.1s' }}>
+            {history.map((item, idx) => (
+              <Link
+                key={idx}
+                href={`/teacher/test/${item.test_code}`}
+                className="glass-card p-6 rounded-2xl hover:-translate-y-1 hover:shadow-xl transition-all duration-300 group flex flex-col sm:flex-row justify-between sm:items-center gap-4 border-l-4 border-indigo-500"
+              >
+                <div className="flex-1 min-w-0 pr-4">
+                  <h3 className="font-extrabold text-xl text-slate-800 group-hover:text-indigo-600 transition-colors duration-200 line-clamp-2" title={item.chapter}>
+                    {item.subject} <span className="text-slate-400 font-normal mx-2">|</span> {item.chapter}
+                  </h3>
+                    <div className="flex items-center gap-2 mt-2">
+                      <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                      <p className="text-sm text-slate-500 font-medium">
+                        {item.created_at ? new Date(item.created_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'Recently'}
+                      </p>
+                    </div>
+                </div>
+                <div className="flex items-center gap-4 shrink-0">
+                  <div className="text-right">
+                    <div className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Questions</div>
+                    <div className="text-2xl font-black text-indigo-600">
+                      {item.question_count}
+                    </div>
+                  </div>
+                  <div className="bg-indigo-50 text-indigo-700 font-mono font-bold px-4 py-2 rounded-xl text-xl border border-indigo-100">
+                    {item.test_code}
+                  </div>
+                  <div className="w-12 h-12 rounded-full flex items-center justify-center bg-indigo-100 text-indigo-600 group-hover:scale-110 transition-transform">
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                </div>
+              </Link>
+            ))}
           </div>
         ) : (
           <div className="grid gap-5 animate-slide-up" style={{ animationDelay: '0.1s' }}>
@@ -98,12 +145,14 @@ export default function TestHistory() {
                   style={{ borderLeftColor: score < 50 ? '#EF4444' : score < 80 ? '#F59E0B' : '#10B981' }}
                 >
                   <div>
-                    <h3 className="font-extrabold text-xl text-slate-800 group-hover:text-indigo-600 transition-colors duration-200">
-                      {item.subject} <span className="text-slate-400 font-normal mx-2">|</span> {item.chapter}
+                    <h3 className="font-extrabold text-xl text-slate-800 group-hover:text-indigo-600 transition-colors duration-200 line-clamp-2" title={item.chapter}>
+                      {item.subject} <span className="text-slate-400 font-normal mx-2">|</span> {item.teacher_name || "Self"} <span className="text-slate-400 font-normal mx-2">|</span> {item.chapter}
                     </h3>
                     <div className="flex items-center gap-2 mt-2">
                       <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                      <p className="text-sm text-slate-500 font-medium">{item.date}</p>
+                      <p className="text-sm text-slate-500 font-medium">
+                        {item.created_at ? new Date(item.created_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : item.date}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
@@ -124,6 +173,16 @@ export default function TestHistory() {
             })}
           </div>
         )}
+        
+        {/* Support Footer */}
+        <footer className="mt-12 pb-6 text-center text-slate-500 text-sm animate-fade-in">
+          <p>
+            Found a bug or need help? Contact support at{" "}
+            <a href="mailto:support@assessmate.com" className="text-indigo-600 font-medium hover:underline">
+              support@assessmate.com
+            </a>
+          </p>
+        </footer>
       </div>
     </div>
   );
