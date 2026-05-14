@@ -5,10 +5,20 @@ AssessMate is a modern, high-performance web application designed for students a
 ## 🚀 Features
 
 - **AI Test Builder**: Generate customized tests based on subjects, chapters, and difficulty levels.
+- **RAG Architecture**: Uses Retrieval-Augmented Generation to ground AI-generated questions in actual textbook content.
 - **Mate AI**: An intelligent chat assistant that provides hints and guidance during assessments.
 - **Digital Library**: Instant access to CBSE and State Board textbooks (Classes X & XII).
 - **Teacher Dashboard**: Create shareable test codes and monitor student performance with AI-graded results.
-- **Analytics**: Detailed performance tracking including critical thinking and efficiency scores.
+
+## 🧠 How it Works (RAG Pipeline)
+
+AssessMate uses a state-of-the-art RAG pipeline to ensure test questions are contextually accurate:
+
+1. **Document Processing**: Textbook PDFs are parsed using `PyPDF2` and split into semantic chunks.
+2. **Embeddings**: Chunks are transformed into high-dimensional vectors using the `BAAI/bge-small-en-v1.5` model.
+3. **Vector Database**: These vectors are stored in **ChromaDB Cloud** (`api.trychroma.com`) for efficient similarity searching.
+4. **Retrieval**: When a test is built, the system queries ChromaDB for relevant content from the selected chapters.
+5. **Generation**: The retrieved context is fed into **Google Gemini**, which synthesizes professional-grade assessment questions.
 
 ## 🛠️ Tech Stack
 
@@ -20,7 +30,7 @@ AssessMate is a modern, high-performance web application designed for students a
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/your-username/AssessMate.git
+git clone https://github.com/Pavan-S-Kumar/AssessMate.git
 cd AssessMate
 ```
 
@@ -28,6 +38,8 @@ cd AssessMate
 Create a `.env` file in the `backend/` directory and add your API keys:
 ```env
 GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_API_KEY_1=your_gemini_api_key_here
+GEMINI_API_KEY_2=your_gemini_api_key_here
 SECRET_KEY=a_secure_random_string
 ```
 
