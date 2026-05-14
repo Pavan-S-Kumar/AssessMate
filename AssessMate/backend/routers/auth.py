@@ -59,4 +59,4 @@ def login(user: schemas.LoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
     access_token = create_access_token(data={"sub": str(db_user.id)})
-    return {"access_token": access_token, "token_type": "bearer", "user": {"id": db_user.id, "class": db_user.class_level, "board": db_user.board, "stream": db_user.stream, "username": db_user.username, "email": db_user.email, "role": db_user.role}}
+    return {"access_token": access_token, "token_type": "bearer", "user": {"id": db_user.id, "class_level": db_user.class_level, "board": db_user.board, "stream": db_user.stream, "username": db_user.username, "email": db_user.email, "role": db_user.role}}

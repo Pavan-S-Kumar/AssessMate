@@ -39,9 +39,21 @@ export default function TestBuilder() {
 
     if (userStr) {
       const user = JSON.parse(userStr);
+      
+      // Normalize Board
       uBoard = user.board || "CBSE";
-      uClass = user.class || "X";
-      uStream = user.stream || (uClass === "XII" ? "PCM&B" : "Default");
+      if (uBoard === "State Board") uBoard = "State Syllabus";
+      
+      // Handle class_level property from backend and normalize it
+      const rawClass = user.class_level || user.class || "X";
+      uClass = (rawClass === "10" || rawClass === "X") ? "X" : "XII";
+      
+      // Ensure stream is valid for XII
+      uStream = user.stream || "Default";
+      if (uClass === "XII" && (uStream === "Default" || !uStream)) {
+        uStream = "PCM&B"; // Reasonable default for XII if missing
+      }
+      
       if (user.role === 'teacher') setIsTeacher(true);
     }
 
@@ -49,12 +61,24 @@ export default function TestBuilder() {
     setClassLevel(uClass);
     setStream(uStream);
 
-    const availableSubjects = curriculumData[uBoard]?.[uClass]?.[uStream] || {};
-    setSubjectData(availableSubjects);
+    let availableSubjects = curriculumData[uBoard]?.[uClass]?.[uStream];
+    
+    // Fallback if the specific stream is not found
+    if (!availableSubjects || Object.keys(availableSubjects).length === 0) {
+      const allStreams = curriculumData[uBoard]?.[uClass] || {};
+      const firstStream = Object.keys(allStreams)[0];
+      if (firstStream) {
+        uStream = firstStream;
+        setStream(uStream);
+        availableSubjects = allStreams[uStream];
+      }
+    }
 
-    const firstSubject = Object.keys(availableSubjects)[0] || "";
+    setSubjectData(availableSubjects || {});
+
+    const firstSubject = Object.keys(availableSubjects || {})[0] || "";
     setSubject(firstSubject);
-    setChapters(availableSubjects[firstSubject] || []);
+    setChapters(availableSubjects ? availableSubjects[firstSubject] || [] : []);
   }, []);
 
   const handleSubjectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {

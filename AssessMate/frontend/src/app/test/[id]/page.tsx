@@ -233,9 +233,14 @@ export default function TestInterface({ params }: { params: Promise<{ id: string
         
         <form onSubmit={handleSubmit} className="space-y-8">
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 min-h-[300px]">
-            <div className="font-semibold text-lg text-gray-800 mb-6 flex gap-2">
-              <span className="text-primary whitespace-nowrap">Q{currentQuestionIndex + 1}.</span> 
-              <MarkdownRenderer content={q.content} />
+            <div className="font-semibold text-lg text-gray-800 mb-6 flex justify-between items-start gap-4">
+              <div className="flex gap-2">
+                <span className="text-primary whitespace-nowrap">Q{currentQuestionIndex + 1}.</span> 
+                <MarkdownRenderer content={q.content} />
+              </div>
+              <div className="flex-shrink-0 bg-slate-100 text-slate-600 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mt-1 border border-slate-200 shadow-sm">
+                {q.type === 'mcq' ? '1 Mark' : q.type === 'short' ? '2 Marks' : '5 Marks'}
+              </div>
             </div>
             
             {q.type === "mcq" ? (

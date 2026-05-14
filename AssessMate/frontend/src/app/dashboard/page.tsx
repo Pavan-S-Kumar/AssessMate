@@ -230,6 +230,12 @@ export default function Dashboard() {
               Sign Out
             </button>
             <Link
+              href="/dashboard/textbooks"
+              className="px-5 py-2.5 bg-white/50 backdrop-blur-md border border-indigo-200 text-indigo-700 rounded-xl font-semibold shadow-sm hover:bg-indigo-50 hover:border-indigo-300 transition-all duration-200 whitespace-nowrap"
+            >
+              View Textbooks
+            </Link>
+            <Link
               href="/dashboard/history"
               className="px-5 py-2.5 bg-white/50 backdrop-blur-md border border-indigo-200 text-indigo-700 rounded-xl font-semibold shadow-sm hover:bg-indigo-50 hover:border-indigo-300 transition-all duration-200 whitespace-nowrap"
             >
