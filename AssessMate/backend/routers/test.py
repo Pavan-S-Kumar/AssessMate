@@ -41,10 +41,13 @@ def generate_test(request: schemas.TestGenerateRequest, email: str = "student@ex
     context = "\n\n".join(all_context_chunks) if all_context_chunks else "Standard knowledge for this topic."
     
     # 4. Generate Assessment via Gemini
+    is_main_exam = request.mode == "Main Exam"
     config = {
-        "mcq_count": request.mcq_count,
-        "short_count": request.short_count,
-        "long_count": request.long_count,
+        "mcq_count": 20 if is_main_exam else request.mcq_count,
+        "short_count": 6 if is_main_exam else request.short_count,
+        "long_count": 3 if is_main_exam else request.long_count,
+        "short_three_count": 7 if is_main_exam else getattr(request, "short_three_count", 0),
+        "case_study_four_count": 3 if is_main_exam else getattr(request, "case_study_four_count", 0),
         "difficulty": request.difficulty,
         "include_critical_thinking": request.include_critical_thinking
     }

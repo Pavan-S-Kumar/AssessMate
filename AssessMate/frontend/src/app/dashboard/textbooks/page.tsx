@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { API_BASE_URL } from "@/config/api";
 
 interface Textbook {
   id: string;
@@ -25,7 +26,7 @@ export default function TextbooksPage() {
 
     const fetchTextbooks = async () => {
       try {
-        const response = await fetch(`http://127.0.0.1:8000/textbooks/${parsedUser.email}`);
+        const response = await fetch(`${API_BASE_URL}/textbooks/${parsedUser.email}`);
         if (response.ok) {
           const data = await response.json();
           setTextbooks(data);

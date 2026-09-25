@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import React from "react";
 import MarkdownRenderer from "../../../components/MarkdownRenderer";
 import TestMateButton from "../../../components/TestMateButton";
+import { API_BASE_URL } from "@/config/api";
 
 interface Question {
   id: string;
@@ -12,6 +13,7 @@ interface Question {
   content: string;
   options?: string[];
   hint?: string;
+  max_score?: number;
 }
 
 export default function TestInterface({ params }: { params: Promise<{ id: string }> }) {
@@ -33,7 +35,7 @@ export default function TestInterface({ params }: { params: Promise<{ id: string
   useEffect(() => {
     const fetchTest = async () => {
       try {
-        const response = await fetch(`http://127.0.0.1:8000/tests/${unwrappedParams.id}`);
+        const response = await fetch(`${API_BASE_URL}/tests/${unwrappedParams.id}`);
         if (!response.ok) throw new Error("Failed to load test");
         const data = await response.json();
         setTestData(data);
@@ -174,7 +176,7 @@ export default function TestInterface({ params }: { params: Promise<{ id: string
     }));
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/tests/evaluate", {
+      const response = await fetch(`${API_BASE_URL}/tests/evaluate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -239,7 +241,7 @@ export default function TestInterface({ params }: { params: Promise<{ id: string
                 <MarkdownRenderer content={q.content} />
               </div>
               <div className="flex-shrink-0 bg-slate-100 text-slate-600 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mt-1 border border-slate-200 shadow-sm">
-                {q.type === 'mcq' ? '1 Mark' : q.type === 'short' ? '2 Marks' : '5 Marks'}
+                {q.max_score ? `${q.max_score} Mark${q.max_score > 1 ? 's' : ''}` : (q.type === 'mcq' ? '1 Mark' : q.type === 'short' ? '2 Marks' : '5 Marks')}
               </div>
             </div>
             

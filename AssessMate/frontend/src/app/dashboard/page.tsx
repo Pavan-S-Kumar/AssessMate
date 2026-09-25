@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useMemo } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend, ComposedChart } from "recharts";
+import { API_BASE_URL } from "@/config/api";
 
 interface PerformanceData {
   test_id: number;
@@ -65,20 +66,20 @@ export default function Dashboard() {
 
       try {
         if (parsedUser.role === 'teacher') {
-          const response = await fetch(`http://127.0.0.1:8000/tests/teacher/tests/${parsedUser.email}`);
+          const response = await fetch(`${API_BASE_URL}/tests/teacher/tests/${parsedUser.email}`);
           if (response.ok) {
             const result = await response.json();
             setTeacherTests(result);
 
             // Fetch analytics
-            const analyticsResponse = await fetch(`http://127.0.0.1:8000/tests/teacher/analytics/${parsedUser.email}`);
+            const analyticsResponse = await fetch(`${API_BASE_URL}/tests/teacher/analytics/${parsedUser.email}`);
             if (analyticsResponse.ok) {
               const analyticsResult = await analyticsResponse.json();
               setAnalyticsData(analyticsResult);
             }
           }
         } else {
-          const response = await fetch(`http://127.0.0.1:8000/tests/performance/${parsedUser.email}`);
+          const response = await fetch(`${API_BASE_URL}/tests/performance/${parsedUser.email}`);
           if (response.ok) {
             const result = await response.json();
             setData(result);
@@ -96,7 +97,7 @@ export default function Dashboard() {
   
   const handleToggleActive = async (testCode: string) => {
     try {
-      const response = await fetch(`http://127.0.0.1:8000/tests/teacher/test/${testCode}/toggle-active?email=${user?.email}`, {
+      const response = await fetch(`${API_BASE_URL}/tests/teacher/test/${testCode}/toggle-active?email=${user?.email}`, {
         method: 'PATCH'
       });
       if (response.ok) {
@@ -114,13 +115,13 @@ export default function Dashboard() {
     if (!confirm("Are you sure you want to disable this test? It will be removed from your dashboard, but student results will be preserved.")) return;
     
     try {
-      const response = await fetch(`http://127.0.0.1:8000/tests/teacher/test/${testCode}?email=${user?.email}`, {
+      const response = await fetch(`${API_BASE_URL}/tests/teacher/test/${testCode}?email=${user?.email}`, {
         method: 'DELETE'
       });
       if (response.ok) {
         setTeacherTests(prev => prev.filter(t => t.test_code !== testCode));
         // Refresh analytics as well
-        const analyticsResponse = await fetch(`http://127.0.0.1:8000/tests/teacher/analytics/${user?.email}`);
+        const analyticsResponse = await fetch(`${API_BASE_URL}/tests/teacher/analytics/${user?.email}`);
         if (analyticsResponse.ok) {
           const analyticsResult = await analyticsResponse.json();
           setAnalyticsData(analyticsResult);
@@ -138,7 +139,7 @@ export default function Dashboard() {
 
     try {
       const email = user?.email || "student@example.com";
-      const response = await fetch(`http://127.0.0.1:8000/tests/join?email=${email}`, {
+      const response = await fetch(`${API_BASE_URL}/tests/join?email=${email}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ test_code: joinCode.trim() })

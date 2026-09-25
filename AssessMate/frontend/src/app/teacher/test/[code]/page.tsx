@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import React from "react";
 import MarkdownRenderer from "../../../../components/MarkdownRenderer";
+import { API_BASE_URL } from "@/config/api";
 
 interface Submission {
   history_id: number;
@@ -41,7 +42,7 @@ export default function TeacherTestResults({ params }: { params: Promise<{ code:
           return;
         }
 
-        const response = await fetch(`http://127.0.0.1:8000/tests/teacher/test/${unwrappedParams.code}/results?email=${email}`);
+        const response = await fetch(`${API_BASE_URL}/tests/teacher/test/${unwrappedParams.code}/results?email=${email}`);
         if (!response.ok) throw new Error("Failed to load results");
 
         const data = await response.json();
@@ -63,6 +64,7 @@ export default function TeacherTestResults({ params }: { params: Promise<{ code:
 
   const calculateMaxScore = (questions: any[]) => {
     return questions.reduce((acc, q) => {
+      if (q.max_score) return acc + q.max_score;
       if (q.type === 'long') return acc + 5;
       if (q.type === 'short') return acc + 2;
       return acc + 1;
@@ -145,7 +147,7 @@ export default function TeacherTestResults({ params }: { params: Promise<{ code:
                           const question = testInfo.test_data.questions.find((q: any) => q.id === ev.question_id);
                           if (!question) return null;
                           
-                          const qMaxScore = question.type === 'long' ? 5 : (question.type === 'short' ? 2 : 1);
+                          const qMaxScore = question.max_score || (question.type === 'long' ? 5 : (question.type === 'short' ? 2 : 1));
                           const isCorrect = ev.score >= (qMaxScore / 2);
 
                           return (

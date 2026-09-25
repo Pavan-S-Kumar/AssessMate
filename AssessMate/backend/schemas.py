@@ -37,6 +37,8 @@ class TestGenerateRequest(BaseModel):
     mcq_count: int
     short_count: int
     long_count: int
+    short_three_count: Optional[int] = 0
+    case_study_four_count: Optional[int] = 0
     difficulty: str
     include_critical_thinking: bool = True
     preview_only: bool = False

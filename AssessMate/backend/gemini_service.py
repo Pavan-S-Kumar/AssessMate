@@ -88,10 +88,10 @@ current_key_index = 0
 
 # Multi-model Support to bypass quota limits
 models_to_try = [
-    "gemini-2.0-flash-lite", 
+    "gemini-2.5-flash", 
     "gemini-2.5-flash-lite", 
-    "gemini-2.0-flash", 
-    "gemini-2.5-flash",
+    "gemini-3.5-flash", 
+    "gemini-3.5-flash-lite",
     "gemini-flash-latest"
 ]
 current_model_index = 0
@@ -118,7 +118,7 @@ def rotate_key_or_model():
             current_key_index = (current_key_index + 1) % len(api_keys)
             print(f"Rotating to next API key...")
             return True
-        return False # No more keys to rotate
+        return False # No more keys/models to rotate
     return True # Rotated model
 
 # Initialize model
@@ -132,7 +132,13 @@ def generate_assessment(context: str, subject: str, chapter: str, mode: str, con
     if not api_keys:
         return generate_mock_assessment(subject, chapter, config)
 
-    total_requested = config.get('mcq_count', 0) + config.get('short_count', 0) + config.get('long_count', 0)
+    mcq_count = config.get('mcq_count', 0)
+    short_count = config.get('short_count', 0)
+    long_count = config.get('long_count', 0)
+    short_three_count = config.get('short_three_count', 0)
+    case_study_four_count = config.get('case_study_four_count', 0)
+
+    total_requested = mcq_count + short_count + short_three_count + case_study_four_count + long_count
     ct_target = min(5, max(1, total_requested // 3)) if total_requested > 0 else 5
     ct_instruction = f"Ensure about {ct_target} of the generated questions are 'Critical Thinking' questions (e.g. Assertion-Reasoning, Case-Based scenarios, or higher-order application)." if config.get('include_critical_thinking', True) and total_requested > 0 else ""
 
@@ -142,9 +148,11 @@ def generate_assessment(context: str, subject: str, chapter: str, mode: str, con
     
     Test Mode: {mode}
     Configuration:
-    - EXACTLY {config.get('mcq_count', 0)} MCQs
-    - EXACTLY {config.get('short_count', 0)} Short Answer Questions
-    - EXACTLY {config.get('long_count', 0)} Long Answer Questions
+    - EXACTLY {mcq_count} MCQs (1 mark each)
+    - EXACTLY {short_count} Short Answer Questions (2 marks each)
+    - EXACTLY {short_three_count} Three-Mark Short Answer Questions (3 marks each)
+    - EXACTLY {case_study_four_count} Case Study-Based Questions (4 marks each)
+    - EXACTLY {long_count} Long Answer Questions (5 marks each)
     Difficulty: {config.get('difficulty', 'Medium')}
     {ct_instruction}
     
@@ -160,8 +168,14 @@ def generate_assessment(context: str, subject: str, chapter: str, mode: str, con
     8. ALWAYS format mathematical equations, scientific notations, chemical formulas, and symbols using standard LaTeX formatting.
        - Inline math MUST be enclosed in `$` (e.g., `$H_2SO_4$`).
        - Block math MUST be enclosed in `$$` (e.g., `$$ \\frac{{p^0 - p_s}}{{p^0}} = \\frac{{n}}{{N}} $$`).
+       - CRITICAL MATH DELIMITER RULE: Only enclose actual formulas, symbols, and units inside `$` delimiters. NEVER include plain English sentences or explanations inside `$` delimiters. Close `$` math blocks immediately after the formula ends.
        - IMPORTANT JSON ESCAPING: You must properly escape LaTeX backslashes in the JSON string! Use `\\\\frac` instead of `\\frac`, `\\\\begin` instead of `\\begin`, and `\\\\\\\\` for matrix newlines.
-    9. For each question, provide a field `max_score` (1 for MCQ, 2 for Short Answer, 5 for Long Answer).
+    9. For each question, provide a field `max_score` based on its type:
+       - MCQ: 1 mark
+       - 2-Mark Short Answer: 2 marks
+       - 3-Mark Short Answer: 3 marks
+       - Case Study Question: 4 marks
+       - 5-Mark Long Answer: 5 marks
     10. For each question, provide a new field `hint` containing a helpful, concept-based hint that does NOT give away the direct answer. Write it in the persona of 'Mate', a fun, enthusiastic alien teaching assistant (e.g., start with 'Amaze!' or use fun, energetic language).
     
     Context:
@@ -189,6 +203,33 @@ def generate_assessment(context: str, subject: str, chapter: str, mode: str, con
                 "is_critical_thinking": false,
                 "max_score": 2,
                 "hint": "Amaze! Remember that..."
+            }},
+            {{
+                "id": "q3",
+                "type": "short_three",
+                "content": "Three-mark short question text here",
+                "ideal_answer": "Expected ideal answer focusing on key concepts.",
+                "is_critical_thinking": false,
+                "max_score": 3,
+                "hint": "Amaze! Remember that..."
+            }},
+            {{
+                "id": "q4",
+                "type": "case_study",
+                "content": "Case study text and questions here",
+                "ideal_answer": "Expected ideal answer focusing on key concepts.",
+                "is_critical_thinking": true,
+                "max_score": 4,
+                "hint": "Amaze! Remember that..."
+            }},
+            {{
+                "id": "q5",
+                "type": "long",
+                "content": "Long question text here",
+                "ideal_answer": "Expected ideal answer focusing on key concepts.",
+                "is_critical_thinking": false,
+                "max_score": 5,
+                "hint": "Amaze! Remember that..."
             }}
         ]
     }}
@@ -211,20 +252,19 @@ def generate_assessment(context: str, subject: str, chapter: str, mode: str, con
             with open("gemini_error.log", "a") as f:
                 f.write(f"Attempt {attempt+1} - Error generating assessment: {error_str}\n")
             
-            if "429" in error_str:
-                if rotate_key_or_model():
-                    model = get_next_model()
-                    continue
-                else:
-                    delay = 15 * (attempt + 1)
-                    print(f"Rate limit exceeded, no more keys, retrying in {delay} seconds...")
-                    time.sleep(delay)
-                    continue
+            if rotate_key_or_model():
+                model = get_next_model()
+                continue
+            elif "429" in error_str:
+                delay = 15 * (attempt + 1)
+                print(f"Rate limit exceeded, no more keys/models, retrying in {delay} seconds...")
+                time.sleep(delay)
+                continue
             
             if attempt < 2:
                 time.sleep(2)
                 continue
-            raise Exception("Failed to generate assessment due to AI service error.")
+            raise Exception(f"Failed to generate assessment due to AI service error: {error_str}")
 
 def evaluate_answer(question: str, user_answer: str, ideal_answer: str, context: str):
     """
@@ -272,19 +312,18 @@ def evaluate_answer(question: str, user_answer: str, ideal_answer: str, context:
             with open("gemini_eval_error.log", "a") as f:
                 f.write(f"Attempt {attempt+1} - Error evaluating answer: {error_str}\n")
             
-            if "429" in error_str:
-                if rotate_key_or_model():
-                    model = get_next_model()
-                    continue
-                else:
-                    delay = 10 * (attempt + 1)
-                    time.sleep(delay)
-                    continue
+            if rotate_key_or_model():
+                model = get_next_model()
+                continue
+            elif "429" in error_str:
+                delay = 10 * (attempt + 1)
+                time.sleep(delay)
+                continue
             
             if attempt < 2:
                 time.sleep(2)
                 continue
-            raise Exception("Failed to evaluate answer due to AI service error.")
+            raise Exception(f"Failed to evaluate answer due to AI service error: {error_str}")
 
 def batch_evaluate_answers(eval_requests: list, context: str):
     """
@@ -348,6 +387,7 @@ def batch_evaluate_answers(eval_requests: list, context: str):
     ALWAYS format mathematical equations, scientific notations, chemical formulas, and symbols in your feedback using standard LaTeX formatting.
     - Inline math MUST be enclosed in `$` (e.g., `$H_2SO_4$`).
     - Block math MUST be enclosed in `$$` (e.g., `$$ \\\\frac{{p^0 - p_s}}{{p^0}} = \\\\frac{{n}}{{N}} $$`).
+    - CRITICAL MATH DELIMITER RULE: Only enclose actual formulas, symbols, and units inside `$` delimiters. NEVER include plain English sentences or explanations inside `$` delimiters. Close `$` math blocks immediately after the formula ends.
     - IMPORTANT JSON ESCAPING: You must properly escape LaTeX backslashes in the JSON string! Use `\\\\frac` instead of `\\frac`.
     
     Output strictly as a JSON array of objects, containing ONLY the evaluations, in the exact same order:
@@ -380,19 +420,18 @@ def batch_evaluate_answers(eval_requests: list, context: str):
             with open("gemini_eval_error.log", "a") as f:
                 f.write(f"Attempt {attempt+1} - Error batch evaluating: {error_str}\n")
             
-            if "429" in error_str:
-                if rotate_key_or_model():
-                    model = get_next_model()
-                    continue
-                else:
-                    delay = 10 * (attempt + 1)
-                    time.sleep(delay)
-                    continue
+            if rotate_key_or_model():
+                model = get_next_model()
+                continue
+            elif "429" in error_str:
+                delay = 10 * (attempt + 1)
+                time.sleep(delay)
+                continue
             
             if attempt < 2:
                 time.sleep(2)
                 continue
-            raise Exception("Failed to evaluate answers due to AI service error.")
+            raise Exception(f"Failed to evaluate answers due to AI service error: {error_str}")
 
 
 def generate_mock_assessment(subject: str, chapter: str, config: dict):
@@ -401,6 +440,8 @@ def generate_mock_assessment(subject: str, chapter: str, config: dict):
     
     mcq_count = config.get("mcq_count", 0)
     short_count = config.get("short_count", 0)
+    short_three_count = config.get("short_three_count", 0)
+    case_study_four_count = config.get("case_study_four_count", 0)
     long_count = config.get("long_count", 0)
     include_ct = config.get("include_critical_thinking", True)
     
@@ -414,8 +455,10 @@ def generate_mock_assessment(subject: str, chapter: str, config: dict):
             "content": f"Mock MCQ {i+1} about {chapter} ({subject})",
             "options": ["Correct Answer", "Wrong Option B", "Wrong Option C", "Wrong Option D"],
             "ideal_answer": "Correct Answer",
+            "explanation": "Correct Answer is correct because of concept reasons.",
             "is_critical_thinking": is_ct,
-            "max_score": 1
+            "max_score": 1,
+            "hint": "Amaze! Select the correct option."
         })
         q_id += 1
         
@@ -424,10 +467,36 @@ def generate_mock_assessment(subject: str, chapter: str, config: dict):
         questions.append({
             "id": f"mock_q{q_id}",
             "type": "short",
-            "content": f"Mock Short Answer {i+1} explaining a concept in {chapter}.",
+            "content": f"Mock 2-Mark Short Answer {i+1} explaining a concept in {chapter}.",
             "ideal_answer": "This is the ideal expected answer mentioning keywords X and Y.",
             "is_critical_thinking": is_ct,
-            "max_score": 2
+            "max_score": 2,
+            "hint": "Amaze! Briefly describe the concept."
+        })
+        q_id += 1
+
+    for i in range(short_three_count):
+        is_ct = include_ct and i == 0
+        questions.append({
+            "id": f"mock_q{q_id}",
+            "type": "short_three",
+            "content": f"Mock 3-Mark Short Answer {i+1} explaining a concept in {chapter}.",
+            "ideal_answer": "This is the ideal expected answer mentioning keywords X, Y and Z.",
+            "is_critical_thinking": is_ct,
+            "max_score": 3,
+            "hint": "Amaze! Explain in details with points."
+        })
+        q_id += 1
+
+    for i in range(case_study_four_count):
+        questions.append({
+            "id": f"mock_q{q_id}",
+            "type": "case_study",
+            "content": f"Mock Case Study Question {i+1} based on a scenario in {chapter}.",
+            "ideal_answer": "This is the ideal case study response with practical application.",
+            "is_critical_thinking": True,
+            "max_score": 4,
+            "hint": "Amaze! Analyze the scenario carefully."
         })
         q_id += 1
         
@@ -439,7 +508,8 @@ def generate_mock_assessment(subject: str, chapter: str, config: dict):
             "content": f"Mock Long Answer {i+1}: Elaborate thoroughly on the main principles of {chapter}.",
             "ideal_answer": "The ideal answer must contain an introduction, body explaining principles 1, 2, 3, and a conclusion.",
             "is_critical_thinking": is_ct,
-            "max_score": 5
+            "max_score": 5,
+            "hint": "Amaze! Provide a detailed long response."
         })
         q_id += 1
         

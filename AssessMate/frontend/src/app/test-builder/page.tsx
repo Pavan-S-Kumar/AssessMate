@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { curriculumData } from "./curriculumData";
 import MarkdownRenderer from "../../components/MarkdownRenderer";
+import { API_BASE_URL } from "@/config/api";
 
 
 export default function TestBuilder() {
@@ -190,15 +191,17 @@ export default function TestBuilder() {
         chapter: chapters.join(", "),
         subtopics: [],
         mode: mode,
-        mcq_count: mode === "Custom" ? (Number(customMcqCount) || 1) : (mode === "MCQ Only" ? 20 : 5),
-        short_count: mode === "Custom" ? (Number(customShortCount) || 0) : (mode === "MCQ Only" ? 0 : 3),
-        long_count: mode === "Custom" ? (Number(customLongCount) || 0) : (mode === "MCQ Only" ? 0 : 1),
+        mcq_count: mode === "Custom" ? (Number(customMcqCount) || 1) : (mode === "MCQ Only" ? 20 : (mode === "Main Exam" ? 20 : 5)),
+        short_count: mode === "Custom" ? (Number(customShortCount) || 0) : (mode === "MCQ Only" ? 0 : (mode === "Main Exam" ? 6 : 3)),
+        long_count: mode === "Custom" ? (Number(customLongCount) || 0) : (mode === "MCQ Only" ? 0 : (mode === "Main Exam" ? 3 : 1)),
+        short_three_count: mode === "Main Exam" ? 7 : 0,
+        case_study_four_count: mode === "Main Exam" ? 3 : 0,
         difficulty: mode === "Custom" ? customDifficulty : "Medium",
         include_critical_thinking: true,
         preview_only: isTeacher
       };
 
-      const response = await fetch(`http://127.0.0.1:8000/tests/generate?email=${email}`, {
+      const response = await fetch(`${API_BASE_URL}/tests/generate?email=${email}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -248,7 +251,7 @@ export default function TestBuilder() {
     const finalData = { ...previewData, questions: filteredQuestions };
 
     try {
-      const response = await fetch(`http://127.0.0.1:8000/tests/teacher/save?email=${email}`, {
+      const response = await fetch(`${API_BASE_URL}/tests/teacher/save?email=${email}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

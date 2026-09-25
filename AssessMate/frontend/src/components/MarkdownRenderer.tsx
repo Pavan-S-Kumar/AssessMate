@@ -10,44 +10,60 @@ interface MarkdownRendererProps {
 }
 
 export default function MarkdownRenderer({ content, className = '' }: MarkdownRendererProps) {
-  // Pre-process content to fix common LaTeX issues in history data
   const processedContent = React.useMemo(() => {
     if (!content) return '';
     
     let text = content;
-    
-    // 1. Fix over-escaped backslashes (often seen in history data)
-    // If we see \\frac, change to \frac
-    text = text.replace(/\\\\/g, '\\');
-    
-    // 2. Wrap potential chemistry/math blocks that missing delimiters
-    // Pattern for common LaTeX commands: \text, \frac, \begin, \alpha, \beta, etc.
-    // If they are not already inside $ or $$, we should wrap them.
-    // This is a bit risky but helps with 'history' tests that were generated before standardizing delimiters.
-    const latexPatterns = [
-      /\\text\{[^{}]+\}/g,
-      /\\frac\{[^{}]+\}\{[^{}]+\}/g,
-      /\\ce\{[^{}]+\}/g, // Chemistry notation
-      /\\mathrm\{[^{}]+\}/g,
-      /\^[0-9+-]+/g,    // Superscripts
-      /_[0-9]+/g        // Subscripts
-    ];
-    
-    // For now, let's just ensure standard board-exam symbols like →, ∆, etc. are handled
-    // or if the AI used plain text for chemistry formulas like H2SO4, 
-    // we don't want to over-complicate, so we focus on fixing the LaTeX.
-    
+
+    // 1. Safely fix over-escaped LaTeX backslashes (e.g. \\Delta -> \Delta, \\frac -> \frac)
+    text = text.replace(/\\\\([a-zA-Z]+)/g, '\\$1');
+
+    // 2. Fix unclosed inline '$' delimiters in a single paragraph so math mode doesn't swallow prose
+    const lines = text.split('\n');
+    const processedLines = lines.map(line => {
+      let l = line;
+      // Count non-escaped inline $ (excluding $$ block math)
+      const count = (l.replace(/\$\$/g, '').match(/(?<!\$)\$(?!\$)/g) || []).length;
+      if (count % 2 !== 0) {
+        // Close trailing unclosed dollar at end of line
+        l += ' $';
+      }
+      return l;
+    });
+    text = processedLines.join('\n');
+
+    // 3. Prevent plain prose/sentences from getting trapped inside $...$
+    // If $...$ contains sentence ending (. ! ?) followed by capitalized prose, close math block before sentence
+    text = text.replace(/\$([^\$\n]+)\$/g, (match, mathContent) => {
+      // Check if mathContent has sentence punctuation followed by plain English prose
+      const sentenceMatch = mathContent.match(/^([\s\S]*?)([\.\!\?]\s+[A-Z][\s\S]*)$/);
+      if (sentenceMatch) {
+        const mathPart = sentenceMatch[1].trim();
+        const prosePart = sentenceMatch[2].trim();
+        return `$${mathPart}$ ${prosePart}`;
+      }
+      return match;
+    });
+
+    // 4. Wrap standalone LaTeX symbols (like \Delta G^0, \Lambda_m, E_{cell}, E^0, \frac{a}{b}) if not already wrapped in $
+    text = text.replace(/(?<!\$)([\\][a-zA-Z]+(?:_{[^{}\s]+}|\^{[{}\S]+})?|[A-Z]_(?:cell|m|s|eq|f|g|r|net|[0-9]+)|[A-Z]\^{0|[0-9\+-]+})(?!\$)/g, (match) => {
+      if (match.startsWith('\\') || match.includes('_') || match.includes('^')) {
+        return `$${match}$`;
+      }
+      return match;
+    });
+
     return text;
   }, [content]);
 
   return (
-    <div className={`prose prose-sm max-w-none ${className}`}>
+    <div className={`prose prose-sm max-w-none break-words ${className}`}>
       <ReactMarkdown
         remarkPlugins={[remarkMath]}
         rehypePlugins={[rehypeKatex]}
         components={{
-          p: ({node, ...props}) => <div className="mb-2" {...props} />,
-          code: ({node, ...props}) => <code className="bg-slate-100 px-1 rounded text-pink-600" {...props} />
+          p: ({node, ...props}) => <div className="mb-2 leading-relaxed" {...props} />,
+          code: ({node, ...props}) => <code className="bg-slate-100 px-1 py-0.5 rounded text-pink-600 text-sm font-mono" {...props} />
         }}
       >
         {processedContent}

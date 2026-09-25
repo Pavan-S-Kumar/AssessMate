@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import MateChatOverlay from "./MateChatOverlay";
+import { API_BASE_URL } from "@/config/api";
 
 const lowPresets = [
   "Don't worry, friend! Every mistake is a step to success. Let's practice!",
@@ -67,7 +68,7 @@ export default function AIAssistantButton({ isDashboard = false }: { isDashboard
           if (!userStr) return;
           const user = JSON.parse(userStr);
           
-          const response = await fetch(`http://127.0.0.1:8000/tests/performance/${user.email}`);
+          const response = await fetch(`${API_BASE_URL}/tests/performance/${user.email}`);
           if (response.ok) {
             const data = await response.json();
             

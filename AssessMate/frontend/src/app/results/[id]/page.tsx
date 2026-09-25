@@ -3,6 +3,7 @@
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
 import MarkdownRenderer from "../../../components/MarkdownRenderer";
+import { API_BASE_URL } from "@/config/api";
 
 export default function Results({ params }: { params: Promise<{ id: string }> }) {
   const unwrappedParams = React.use(params);
@@ -12,7 +13,7 @@ export default function Results({ params }: { params: Promise<{ id: string }> })
   useEffect(() => {
     const fetchResults = async () => {
       try {
-        const response = await fetch(`http://127.0.0.1:8000/tests/${unwrappedParams.id}`);
+        const response = await fetch(`${API_BASE_URL}/tests/${unwrappedParams.id}`);
         if (!response.ok) throw new Error("Failed to fetch results");
         const json = await response.json();
         setData(json);
@@ -112,8 +113,11 @@ export default function Results({ params }: { params: Promise<{ id: string }> })
               <div key={idx} className={`glass-card ${bgColor} border ${borderColor} p-6 rounded-2xl hover:shadow-lg transition-shadow duration-300`}>
                 <div className={`font-bold ${titleColor} text-lg flex gap-2 items-start`}>
                   <span className="mt-0.5 bg-white/60 px-2 py-0.5 rounded text-sm shadow-sm border border-black/5">Q{idx + 1}</span>
-                  <div className="flex-1">
-                    <MarkdownRenderer content={`${question.content} <span class="text-xs font-normal text-slate-500 bg-slate-100/80 px-2 py-1 rounded ml-2">${question.type === "mcq" ? "MCQ" : "Subjective"}</span>`} />
+                  <div className="flex-1 flex flex-wrap items-center gap-2">
+                    <MarkdownRenderer content={question.content} className="inline" />
+                    <span className="text-xs font-normal text-slate-500 bg-slate-100/80 px-2 py-1 rounded border border-slate-200">
+                      {question.type === "mcq" ? "MCQ" : "Subjective"}
+                    </span>
                   </div>
                 </div>
                 

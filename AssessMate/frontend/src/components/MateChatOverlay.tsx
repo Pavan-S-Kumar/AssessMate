@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import MarkdownRenderer from "./MarkdownRenderer";
+import { API_BASE_URL } from "@/config/api";
 
 interface ChatMessage {
   role: string;
@@ -106,7 +107,7 @@ export default function MateChatOverlay({ onClose }: { onClose: () => void }) {
   const fetchHistory = async () => {
     try {
       const email = getUserEmail();
-      const response = await fetch(`http://127.0.0.1:8000/chat/${email}/history`);
+      const response = await fetch(`${API_BASE_URL}/chat/${email}/history`);
       if (response.ok) {
         const data = await response.json();
         setHistory(data);
@@ -125,7 +126,7 @@ export default function MateChatOverlay({ onClose }: { onClose: () => void }) {
     setMessages([]);
     setIsLoading(true);
     try {
-      const response = await fetch(`http://127.0.0.1:8000/chat/${chatId}`);
+      const response = await fetch(`${API_BASE_URL}/chat/${chatId}`);
       if (response.ok) {
         const data = await response.json();
         setMessages(data.messages || []);
@@ -158,7 +159,7 @@ export default function MateChatOverlay({ onClose }: { onClose: () => void }) {
     try {
       if (activeChatId) {
         // Continue existing chat
-        const response = await fetch(`http://127.0.0.1:8000/chat/${activeChatId}/message`, {
+        const response = await fetch(`${API_BASE_URL}/chat/${activeChatId}/message`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)
@@ -170,7 +171,7 @@ export default function MateChatOverlay({ onClose }: { onClose: () => void }) {
       } else {
         // Start new chat
         const email = getUserEmail();
-        const response = await fetch(`http://127.0.0.1:8000/chat/${email}/new`, {
+        const response = await fetch(`${API_BASE_URL}/chat/${email}/new`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)

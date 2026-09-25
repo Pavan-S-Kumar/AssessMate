@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
+import { API_BASE_URL } from "@/config/api";
 
 interface TestHistory {
   test_id: number;
@@ -28,13 +29,13 @@ export default function TestHistory() {
 
       try {
         if (parsedUser.role === 'teacher') {
-          const response = await fetch(`http://127.0.0.1:8000/tests/teacher/tests/${parsedUser.email}`);
+          const response = await fetch(`${API_BASE_URL}/tests/teacher/tests/${parsedUser.email}`);
           if (response.ok) {
             const result = await response.json();
             setHistory(result); // For teacher tests, we don't need to filter by test_id as they always have id
           }
         } else {
-          const response = await fetch(`http://127.0.0.1:8000/tests/performance/${parsedUser.email}`);
+          const response = await fetch(`${API_BASE_URL}/tests/performance/${parsedUser.email}`);
           if (response.ok) {
             const result = await response.json();
             setHistory(result.filter((r: any) => r.test_id));
