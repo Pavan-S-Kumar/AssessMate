@@ -55,6 +55,7 @@ export default function TextbooksPage() {
       case "Biology": return "🧬";
       case "Science": return "🔬";
       case "Computer Science": return "💻";
+      case "COA": return "🖥️";
       case "Accountancy": return "💰";
       case "Business Studies": return "💼";
       case "Economics": return "📈";
@@ -73,6 +74,7 @@ export default function TextbooksPage() {
       case "Biology": return "from-rose-500 to-pink-600";
       case "Science": return "from-sky-500 to-blue-600";
       case "Computer Science": return "from-slate-700 to-slate-900";
+      case "COA": return "from-indigo-600 to-violet-800";
       case "Accountancy": return "from-amber-500 to-orange-600";
       case "Business Studies": return "from-cyan-500 to-blue-600";
       case "Economics": return "from-indigo-500 to-violet-600";

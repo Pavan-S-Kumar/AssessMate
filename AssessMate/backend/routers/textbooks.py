@@ -21,13 +21,20 @@ def get_student_textbooks(email: str, db: Session = Depends(get_db)):
     if board_str == "State Syllabus":
         board_str = "State Board"
         
-    class_str = "Class-X" if "10" in c_level or "x" in c_level and "xii" not in c_level else "Class-XII"
+    if "sem 3" in c_level or "ug" in c_level or board_str == "University":
+        class_str = "UG"
+    else:
+        class_str = "Class-X" if "10" in c_level or "x" in c_level and "xii" not in c_level else "Class-XII"
+    
     stream_str = user.stream or "Default"
 
     # Build path to search
     # Path format: Resources/[Board]/[Class]/[Stream (only for XII)]
+    if class_str == "UG":
+        base_path = os.path.join(RESOURCES_DIR, "UG")
+    else:
+        base_path = os.path.join(RESOURCES_DIR, board_str, class_str)
     
-    base_path = os.path.join(RESOURCES_DIR, board_str, class_str)
     print(f"DEBUG: Searching textbooks in {base_path} for user {email}")
     
     if not os.path.exists(base_path):
@@ -55,6 +62,8 @@ def get_student_textbooks(email: str, db: Session = Depends(get_db)):
                     search_paths.append(base_path) # Fallback to base
         else:
             search_paths.append(base_path)
+    elif class_str == "UG":
+        search_paths.append(base_path)
     else:
         # Class X - all files in base_path
         search_paths.append(base_path)
@@ -92,6 +101,7 @@ def get_subject_from_filename(filename: str):
     # Specific patterns for Computer Science to avoid overlap with Econo-mi-CS
     if "lecs" in fn or "computer_science" in fn or "comp_sci" in fn: return "Computer Science"
     if "sci" in fn: return "Science"
+    if "coa" in fn or "computer organization" in fn: return "COA"
     if "acc" in fn: return "Accountancy"
     if "bus" in fn or "bst" in fn or "comm" in fn: return "Business Studies"
     if "eco" in fn or "macro" in fn or "micro" in fn or "soceco" in fn: return "Economics"

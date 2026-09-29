@@ -47,7 +47,7 @@ export default function TestBuilder() {
       
       // Handle class_level property from backend and normalize it
       const rawClass = user.class_level || user.class || "X";
-      uClass = (rawClass === "10" || rawClass === "X") ? "X" : "XII";
+      uClass = (rawClass === "10" || rawClass === "X") ? "X" : (rawClass === "SEM 3" ? "SEM 3" : "XII");
       
       // Ensure stream is valid for XII
       uStream = user.stream || "Default";

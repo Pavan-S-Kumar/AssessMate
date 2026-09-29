@@ -122,6 +122,7 @@ export default function Login() {
                 <select name="board" value={formData.board} onChange={handleInputChange} className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-secondary focus:border-secondary outline-none bg-white text-gray-900">
                   <option value="CBSE">CBSE</option>
                   <option value="State Syllabus">State Syllabus</option>
+                  <option value="University">University</option>
                 </select>
               </div>
               
@@ -133,10 +134,13 @@ export default function Login() {
                     setFormData(prev => ({ ...prev, class_level: "XII", stream: "PCM&B" }));
                   } else if (e.target.value === "X") {
                     setFormData(prev => ({ ...prev, class_level: "X", stream: "Default" }));
+                  } else if (e.target.value === "SEM 3") {
+                    setFormData(prev => ({ ...prev, class_level: "SEM 3", stream: "Default" }));
                   }
                 }} className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-secondary focus:border-secondary outline-none bg-white text-gray-900">
                   <option value="X">Class X</option>
                   <option value="XII">Class XII</option>
+                  <option value="SEM 3">UG SEM 3</option>
                 </select>
               </div>
 

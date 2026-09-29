@@ -151,5 +151,18 @@ export const curriculumData: Record<string, Record<string, Record<string, Record
         "Zoology": ["Reproduction in Organisms", "Human Reproduction", "Reproductive Health", "Principles of Inheritance and Variation", "Molecular Genetics", "Evolution", "Human Health and Diseases", "Microbes in Human Welfare", "Applications of Biotechnology", "Organisms and Populations", "Biodiversity and its Conservation", "Environmental Issues"]
       }
     }
+  },
+  "University": {
+    "SEM 3": {
+      "Default": {
+        "COA": [
+          "Unit I",
+          "Unit II",
+          "Unit III",
+          "Unit IV",
+          "Unit V"
+        ]
+      }
+    }
   }
 };

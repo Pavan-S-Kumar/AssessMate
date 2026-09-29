@@ -22,6 +22,9 @@ def generate_test(request: schemas.TestGenerateRequest, email: str = "student@ex
     user_id = user.id if user else 1
     class_level = user.class_level if user else "X"
     
+    # Map SEM 3 to UG for RAG
+    search_class_level = "UG" if class_level == "SEM 3" else class_level
+    
     # 2. Extract chapters
     chapters = [c.strip() for c in request.chapter.split(",") if c.strip()]
     
@@ -31,7 +34,7 @@ def generate_test(request: schemas.TestGenerateRequest, email: str = "student@ex
         query = " ".join(request.subtopics) if request.subtopics else f"All subtopics of {chap}"
         chunks = search_knowledge(
             query=query, 
-            class_level=class_level, 
+            class_level=search_class_level, 
             subject=request.subject, 
             chapter=chap,
             n_results=3
